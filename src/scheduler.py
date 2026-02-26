@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from dateutil.relativedelta import relativedelta
+
 from .models.project import Project
 from .models.job_types import Schedule, RunHistory, RecurrencePattern
 
@@ -93,8 +95,9 @@ class JobScheduler:
             return now + timedelta(weeks=interval)
 
         if schedule.recurrence_pattern == RecurrencePattern.MONTHLY:
-            # Approximate: add 30 * interval days
-            return now + timedelta(days=30 * interval)
+            # Use relativedelta for correct month arithmetic (handles
+            # month-length differences and year boundaries).
+            return now + relativedelta(months=interval)
 
         if schedule.recurrence_pattern == RecurrencePattern.CUSTOM:
             if schedule.cron_expression:

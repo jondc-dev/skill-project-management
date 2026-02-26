@@ -18,6 +18,8 @@ class ProjectStatus(str, Enum):
     ACTIVE = "active"
     PAUSED = "paused"
     COMPLETED = "completed"
+    PARTIALLY_COMPLETED = "partially_completed"
+    OVERDUE = "overdue"
     FAILED = "failed"
     CANCELLED = "cancelled"
 

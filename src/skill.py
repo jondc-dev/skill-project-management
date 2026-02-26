@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, Optional
 
-from .models.project import Project, ProjectPhase, Risk
+from .models.project import Project, ProjectPhase, ProjectStatus, Risk
 from .models.task import Task, TaskStatus
 from .models.job_types import Schedule
 from .engine.execution_loop import ExecutionLoop
@@ -152,14 +152,29 @@ class ProjectManagementSkill:
         project: Project,
         task_executor: Callable[[Task], bool] | None = None,
         checkpoint_path: str | None = None,
+        async_mode: bool = False,
+        backoff_callback: Callable[[float], None] | None = None,
+        parallel: bool = False,
+        max_workers: int = 4,
     ) -> Project:
         """Execute the project via the execution loop.
 
         Args:
             project: The project to run.
-            task_executor: Optional ``(Task) -> bool`` callable.
+            task_executor: Optional ``(Task) -> bool`` or
+                ``(Task, strategy=None) -> bool`` callable.
                 Defaults to always returning True (simulated success).
             checkpoint_path: Optional path for JSON checkpointing.
+            async_mode: When True, use ``asyncio.sleep`` for retry
+                backoff instead of ``time.sleep``.  Call
+                ``run_project_async`` for a fully async entry point.
+            backoff_callback: Optional ``(delay: float) -> None``
+                callable invoked during retry backoff.  Overrides both
+                ``time.sleep`` and ``asyncio.sleep`` when provided.
+            parallel: When True, execute dependency-ready tasks
+                concurrently within each batch.
+            max_workers: Thread-pool size for parallel sync execution
+                (default 4).
 
         Returns:
             The updated Project after execution.
@@ -168,6 +183,10 @@ class ProjectManagementSkill:
             project=project,
             task_executor=task_executor,
             checkpoint_path=checkpoint_path,
+            async_mode=async_mode,
+            backoff_callback=backoff_callback,
+            parallel=parallel,
+            max_workers=max_workers,
         )
         return loop.run()
 
@@ -214,6 +233,8 @@ class ProjectManagementSkill:
         """Advance the project to the next PMBOK phase.
 
         Has no effect if the project is already in the CLOSURE phase.
+        When advancing to CLOSURE and all tasks are done, the project
+        status is automatically set to COMPLETED.
 
         Args:
             project: The project to advance.
@@ -229,4 +250,14 @@ class ProjectManagementSkill:
                 "phase_advanced",
                 f"Phase changed from {old_phase.value} to {project.phase.value}.",
             )
+            if project.phase == ProjectPhase.CLOSURE:
+                all_done = all(
+                    t.status.value == "done" for t in project.tasks
+                )
+                if all_done:
+                    project.status = ProjectStatus.COMPLETED
+                    project.add_audit(
+                        "project_completed",
+                        "All tasks done; project marked COMPLETED on closure.",
+                    )
         return project

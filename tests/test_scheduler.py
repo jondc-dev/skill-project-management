@@ -98,7 +98,7 @@ class TestCalculateNextRun:
         assert nxt > before + timedelta(days=6)
         assert nxt < before + timedelta(days=8)
 
-    def test_monthly_adds_approx_30_days(self):
+    def test_monthly_adds_one_calendar_month(self):
         scheduler = JobScheduler()
         s = Schedule(
             recurrence_pattern=RecurrencePattern.MONTHLY,
@@ -107,8 +107,11 @@ class TestCalculateNextRun:
         )
         before = utcnow()
         nxt = scheduler.calculate_next_run(s)
-        assert nxt > before + timedelta(days=29)
-        assert nxt < before + timedelta(days=31)
+        # Should be exactly one calendar month ahead, not a fixed day count
+        expected_month = (before.month % 12) + 1
+        assert nxt.month == expected_month or (before.month == 12 and nxt.month == 1)
+        assert nxt.year >= before.year
+        assert nxt > before
 
     def test_custom_pattern_returns_future(self):
         scheduler = JobScheduler()
@@ -120,6 +123,43 @@ class TestCalculateNextRun:
         before = utcnow()
         nxt = scheduler.calculate_next_run(s)
         assert nxt > before
+
+    def test_monthly_boundary_jan31_to_feb(self):
+        """Jan 31 + 1 month should land on Feb 28 (or 29 in leap year), not overflow."""
+        from unittest.mock import patch
+
+        scheduler = JobScheduler()
+        jan31 = datetime(2025, 1, 31, 9, 0, tzinfo=timezone.utc)
+        s = Schedule(
+            recurrence_pattern=RecurrencePattern.MONTHLY,
+            start_date=jan31,
+            interval=1,
+        )
+        with patch("src.scheduler.datetime") as mock_dt:
+            mock_dt.now.return_value = jan31
+            nxt = scheduler.calculate_next_run(s)
+        # Feb 2025 has 28 days; relativedelta clamps to Feb 28
+        assert nxt.month == 2
+        assert nxt.day == 28
+        assert nxt.year == 2025
+
+    def test_monthly_boundary_dec_to_jan(self):
+        """Dec 15 + 1 month = Jan 15 of next year (year boundary)."""
+        from unittest.mock import patch
+
+        scheduler = JobScheduler()
+        dec15 = datetime(2025, 12, 15, 9, 0, tzinfo=timezone.utc)
+        s = Schedule(
+            recurrence_pattern=RecurrencePattern.MONTHLY,
+            start_date=dec15,
+            interval=1,
+        )
+        with patch("src.scheduler.datetime") as mock_dt:
+            mock_dt.now.return_value = dec15
+            nxt = scheduler.calculate_next_run(s)
+        assert nxt.month == 1
+        assert nxt.day == 15
+        assert nxt.year == 2026
 
 
 class TestCreateRunInstance:
