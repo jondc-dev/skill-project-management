@@ -8,6 +8,7 @@ from .blocker_manager import (
     BlockerManager,
 )
 from .execution_loop import ExecutionLoop
+from .async_execution_loop import AsyncExecutionLoop
 
 __all__ = [
     "get_next_task",
@@ -16,4 +17,5 @@ __all__ = [
     "BlockerDecomposition",
     "BlockerManager",
     "ExecutionLoop",
+    "AsyncExecutionLoop",
 ]

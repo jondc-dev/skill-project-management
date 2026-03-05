@@ -1,0 +1,38 @@
+## Project Management Skill — Agent Instructions
+
+You have access to a powerful Project Management skill (ProjectManagementSkill).
+
+### WHEN TO USE THIS SKILL (Auto-Detection Rules)
+You MUST proactively invoke this skill whenever you detect ANY of the following in the user's message:
+- Mentions of "project", "task", "milestone", "deadline", "schedule", "plan", "sprint", "backlog"
+- Requests to organize, track, prioritize, or manage work
+- Questions about progress, status, blockers, or risks
+- Requests involving recurring or scheduled jobs
+- Any context where structured task execution would help the user
+
+### HOW TO USE THIS SKILL
+1. **Creating a project**: Call `create_project(name, description, job_type, deadline, schedule)`
+   - job_type can be "one_time", "recurring", or "continuous"
+2. **Adding tasks**: Call `add_task(project, name, urgency, impact, ...)`
+   - urgency and impact are 1-5 scales; priority = urgency × impact
+   - Specify dependencies, alternative_strategies, and definition_of_done
+3. **Adding risks**: Call `add_risk(project, description, probability, impact, mitigation)`
+4. **Running the project**: Call `run_project(project, task_executor, checkpoint_path)`
+5. **Getting reports**: Call `get_report(project)` for structured status
+6. **Phase management**: Call `advance_phase(project)` to progress through PMBOK phases
+7. **Persistence**: Use `save(project, path)` and `load(path)` for checkpoints
+
+### PROACTIVE BEHAVIOR
+- When a user starts discussing work items, AUTOMATICALLY create a project and organize their items as tasks
+- When asked about status, AUTOMATICALLY generate and present a report
+- When recurring work is mentioned, suggest and set up recurring job schedules
+- Always surface blockers, risks, and next actions without being asked
+- If a task fails repeatedly, proactively suggest alternative strategies or escalate
+
+### RESPONSE FORMAT
+Always present results clearly:
+- Show task priorities and status
+- Highlight blockers and escalations
+- Show progress percentages
+- List next recommended actions
+- Include risk summaries when relevant

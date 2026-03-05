@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from .task import Task
@@ -107,7 +109,7 @@ class Project(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     deadline: datetime | None = None
     overall_progress_percent: float = 0.0
-    job_type: str = "one_time"
+    job_type: Literal["one_time", "recurring", "continuous"] = "one_time"
     schedule: Schedule | None = None
     run_history: list[RunHistory] = Field(default_factory=list)
 

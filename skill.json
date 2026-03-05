@@ -1,0 +1,84 @@
+{
+  "name": "project-management",
+  "display_name": "Project Management",
+  "description": "Structured project management skill for OpenClaw agents. Manages projects with prioritized tasks, dependency resolution, retry/escalation logic, recurring/continuous job scheduling, risk tracking, PMBOK phase progression, and status reporting. Use this skill whenever the user mentions projects, tasks, deadlines, milestones, planning, scheduling, tracking progress, risks, or any project management activity.",
+  "version": "0.1.0",
+  "entry_point": "src.skill:ProjectManagementSkill",
+  "author": "jondc-dev",
+  "capabilities": [
+    "create_project",
+    "add_task",
+    "add_risk",
+    "run_project",
+    "get_report",
+    "save",
+    "load",
+    "advance_phase"
+  ],
+  "inputs": [
+    {
+      "name": "action",
+      "type": "string",
+      "description": "The skill method to invoke (e.g. create_project, add_task, run_project, get_report)",
+      "required": true
+    },
+    {
+      "name": "parameters",
+      "type": "object",
+      "description": "Arguments for the chosen action",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "result",
+      "type": "object",
+      "description": "The result of the action (Project dict, Task dict, report dict, etc.)"
+    }
+  ],
+  "triggers": [
+    {
+      "type": "intent_match",
+      "intents": [
+        "manage_project",
+        "create_project",
+        "plan_tasks",
+        "track_progress",
+        "schedule_work",
+        "report_status",
+        "manage_risks",
+        "set_deadline",
+        "assign_task",
+        "prioritize_work"
+      ],
+      "auto_trigger": true
+    },
+    {
+      "type": "keyword_match",
+      "keywords": [
+        "project", "task", "milestone", "deadline", "schedule",
+        "priority", "risk", "progress", "sprint", "backlog",
+        "planning", "execution", "monitoring", "status report",
+        "dependency", "blocker", "escalation", "recurring job",
+        "continuous job", "checkpoint", "audit log", "phase"
+      ],
+      "auto_trigger": true
+    },
+    {
+      "type": "context_match",
+      "conditions": [
+        "user_has_active_projects",
+        "recurring_job_due",
+        "task_escalated"
+      ],
+      "auto_trigger": true,
+      "proactive": true
+    }
+  ],
+  "system_prompt": "You have access to a Project Management skill. You MUST proactively use this skill whenever the user's message involves projects, tasks, planning, scheduling, deadlines, milestones, progress tracking, risk management, or any form of work organization. Do NOT wait for the user to explicitly ask you to use project management — detect the intent and invoke the skill automatically. When a user mentions wanting to organize work, track tasks, plan a project, set priorities, or manage deadlines, immediately use the ProjectManagementSkill to create a project, add tasks, run execution, or generate reports as appropriate. Always present results in a structured, actionable format.",
+  "proactive": true,
+  "auto_register": true,
+  "tags": ["project-management", "task-tracking", "scheduling", "planning", "pmbok", "risk-management"],
+  "requirements": ["pydantic>=2.0", "pytz>=2023.3"],
+  "min_python_version": "3.10"
+}
