@@ -7,6 +7,7 @@ from .models.job_types import Schedule, RunHistory, RecurrencePattern, RunStatus
 from .scheduler import JobScheduler
 from .persistence import save_checkpoint, load_checkpoint
 from .reporting import generate_status_report
+from .engine.async_execution_loop import AsyncExecutionLoop
 
 __all__ = [
     "ProjectManagementSkill",
@@ -25,4 +26,5 @@ __all__ = [
     "save_checkpoint",
     "load_checkpoint",
     "generate_status_report",
+    "AsyncExecutionLoop",
 ]

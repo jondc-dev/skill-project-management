@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Awaitable, Callable
 
 from .models.project import Project, ProjectPhase, Risk
 from .models.task import Task, TaskStatus
 from .models.job_types import Schedule
 from .engine.execution_loop import ExecutionLoop
+from .engine.async_execution_loop import AsyncExecutionLoop
 from .persistence import save_checkpoint, load_checkpoint
 from .reporting import generate_status_report
 
@@ -170,6 +171,30 @@ class ProjectManagementSkill:
             checkpoint_path=checkpoint_path,
         )
         return loop.run()
+
+    async def async_run_project(
+        self,
+        project: Project,
+        task_executor: Callable[[Task], Awaitable[bool]] | None = None,
+        checkpoint_path: str | None = None,
+    ) -> Project:
+        """Execute the project via the async execution loop.
+
+        Args:
+            project: The project to run.
+            task_executor: Optional async ``(Task) -> Awaitable[bool]`` callable.
+                Defaults to always returning True (simulated success).
+            checkpoint_path: Optional path for JSON checkpointing.
+
+        Returns:
+            The updated Project after execution.
+        """
+        loop = AsyncExecutionLoop(
+            project=project,
+            task_executor=task_executor,
+            checkpoint_path=checkpoint_path,
+        )
+        return await loop.run()
 
     # ------------------------------------------------------------------
     # Reporting & persistence

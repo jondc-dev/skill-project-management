@@ -6,6 +6,7 @@ src/reporting.py
 src/scheduler.py
 src/skill.py
 src/engine/__init__.py
+src/engine/async_execution_loop.py
 src/engine/blocker_manager.py
 src/engine/execution_loop.py
 src/engine/priority.py

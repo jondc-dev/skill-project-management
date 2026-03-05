@@ -1,10 +1,10 @@
-"""Execution loop: drives task processing for a project."""
+"""Async execution loop: drives task processing for a project using asyncio."""
 
 from __future__ import annotations
 
-import time
+import asyncio
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Awaitable, Callable
 
 from ..models.project import Project, ProjectStatus
 from ..models.task import Task, TaskStatus
@@ -13,14 +13,17 @@ from .priority import get_next_task
 from .blocker_manager import BlockerManager, EscalationMessage
 
 
-class ExecutionLoop:
-    """Orchestrates sequential task execution for a project.
+class AsyncExecutionLoop:
+    """Orchestrates sequential async task execution for a project.
+
+    Mirrors :class:`ExecutionLoop` but uses ``asyncio.sleep()`` instead of
+    ``time.sleep()`` and accepts an async task executor.
 
     Args:
         project: The project to execute.
-        task_executor: Optional callable ``(Task) -> bool``.  Returns True on
-            success, False on failure.  Defaults to a stub that always
-            succeeds.
+        task_executor: Optional async callable ``(Task) -> Awaitable[bool]``.
+            Returns True on success, False on failure.  Defaults to a stub
+            that always succeeds.
         checkpoint_path: File path for JSON checkpointing, or None to skip.
         blocker_manager: Optional pre-configured BlockerManager instance.
     """
@@ -28,13 +31,13 @@ class ExecutionLoop:
     def __init__(
         self,
         project: Project,
-        task_executor: Callable[[Task], bool] | None = None,
+        task_executor: Callable[[Task], Awaitable[bool]] | None = None,
         checkpoint_path: str | None = None,
         blocker_manager: BlockerManager | None = None,
     ) -> None:
         self.project = project
-        self.task_executor: Callable[[Task], bool] = (
-            task_executor if task_executor is not None else lambda _task: True
+        self.task_executor: Callable[[Task], Awaitable[bool]] = (
+            task_executor if task_executor is not None else self._default_executor
         )
         self.checkpoint_path = checkpoint_path
         self.blocker_manager = blocker_manager or BlockerManager()
@@ -44,8 +47,8 @@ class ExecutionLoop:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self) -> Project:
-        """Execute all eligible tasks in priority order.
+    async def run(self) -> Project:
+        """Execute all eligible tasks in priority order (async).
 
         Iterates until no more tasks are eligible:
         1. Selects highest-priority PENDING/RETRYING task whose
@@ -68,7 +71,7 @@ class ExecutionLoop:
             if task is None:
                 break
 
-            success = self._run_task_with_retries(task)
+            success = await self._run_task_with_retries(task)
 
             if success:
                 task.status = TaskStatus.DONE
@@ -79,8 +82,7 @@ class ExecutionLoop:
                     f"Task '{task.name}' completed successfully.",
                 )
             else:
-                # Try alternative strategies
-                alt_success = self._try_alternatives(task)
+                alt_success = await self._try_alternatives(task)
                 if alt_success:
                     task.status = TaskStatus.DONE
                     task.updated_at = datetime.now(timezone.utc)
@@ -102,11 +104,8 @@ class ExecutionLoop:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def execute_task(self, task: Task) -> bool:
-        """Invoke the task executor for a single attempt.
-
-        Override this method in subclasses or supply ``task_executor``
-        to the constructor for custom execution behaviour.
+    async def execute_task(self, task: Task) -> bool:
+        """Invoke the async task executor for a single attempt.
 
         Args:
             task: The task to execute.
@@ -114,10 +113,10 @@ class ExecutionLoop:
         Returns:
             True if the task succeeded, False otherwise.
         """
-        return self.task_executor(task)
+        return await self.task_executor(task)
 
-    def _run_task_with_retries(self, task: Task) -> bool:
-        """Attempt execution with exponential-backoff retries.
+    async def _run_task_with_retries(self, task: Task) -> bool:
+        """Attempt execution with exponential-backoff retries (async).
 
         Args:
             task: Task to attempt.
@@ -129,12 +128,9 @@ class ExecutionLoop:
         task.updated_at = datetime.now(timezone.utc)
 
         for attempt in range(task.max_retries + 1):
-            start = time.monotonic()
-            success = self.execute_task(task)
-            elapsed = time.monotonic() - start
+            success = await self.execute_task(task)
 
             if success:
-                task.actual_duration = (task.actual_duration or 0.0) + elapsed / 60.0
                 return True
 
             task.retry_count += 1
@@ -151,14 +147,14 @@ class ExecutionLoop:
                     f"Task '{task.name}' failed (attempt {attempt + 1}). "
                     f"Retrying in {delay:.1f}s.",
                 )
-                time.sleep(delay)
+                await asyncio.sleep(delay)
 
         task.status = TaskStatus.BLOCKED
         task.updated_at = datetime.now(timezone.utc)
         return False
 
-    def _try_alternatives(self, task: Task) -> bool:
-        """Attempt each alternative strategy in order.
+    async def _try_alternatives(self, task: Task) -> bool:
+        """Attempt each alternative strategy in order (async).
 
         Args:
             task: Blocked task with alternative_strategies list.
@@ -172,10 +168,8 @@ class ExecutionLoop:
                 f"Trying alternative '{strategy}' for task '{task.name}'.",
             )
             task.notes += f"\nTrying alternative strategy: {strategy}"
-            # Re-use the same executor; a real implementation would
-            # modify the task context per strategy.
             task.status = TaskStatus.RETRYING
-            success = self.execute_task(task)
+            success = await self.execute_task(task)
             if success:
                 return True
         return False
@@ -228,3 +222,8 @@ class ExecutionLoop:
         """Persist current project state to disk if a path is configured."""
         if self.checkpoint_path:
             save_checkpoint(self.project, self.checkpoint_path)
+
+    @staticmethod
+    async def _default_executor(task: Task) -> bool:  # noqa: ARG004
+        """Default async executor that always succeeds."""
+        return True
